@@ -107,7 +107,7 @@ with st.sidebar:
     # Botão para limpar completamente
     if st.button("Clean Uploads"):
         st.session_state["uploaded_files"] = []
-        st.experimental_rerun()   
+        st.rerun()   
 
     # Filtros
     st.markdown("### Filters")
@@ -260,6 +260,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
