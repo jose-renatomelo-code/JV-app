@@ -82,38 +82,52 @@ def parse_jv_file(uploaded_file):
 # Sidebar
 # -----------------------------------------------------------------------------
 with st.sidebar:
-
     st.title("JV Analyser Pro")
     st.markdown("---")
 
-    # Armazenamento permanente
+    # inicializa chave do uploader e a lista persistente
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 0
     if "uploaded_files" not in st.session_state:
         st.session_state["uploaded_files"] = []
 
-    # Upload normal com key fixa
+    # função de limpeza: incrementa a key, limpa a lista e força rerun
+    def clean_all_uploads():
+        st.session_state["uploaded_files"] = []
+        st.session_state["uploader_key"] += 1
+        # força recarregar imediatamente para refletir a nova key no navegador
+        st.experimental_rerun()
+
+    # file_uploader com key dinâmica baseada em uploader_key
     new_files = st.file_uploader(
         "Upload .txt files",
         type=["txt"],
         accept_multiple_files=True,
-        key="uploader"
+        key=f"uploader_{st.session_state['uploader_key']}"
     )
 
-    # Se o usuário enviou arquivos agora → substitui
+    # se o usuário acabou de enviar arquivos, atualiza o estado (substitui)
     if new_files:
         st.session_state["uploaded_files"] = new_files
 
+    # Pega a lista atual (pode ser [])
     uploaded_files = st.session_state["uploaded_files"]
 
-    # Botão para limpar completamente
-    if st.button("Clean Uploads"):
-        st.session_state["uploaded_files"] = []
-        st.rerun()   
+    # Botão com on_click que chama a função (um clique basta)
+    st.button("Clean Uploads", on_click=clean_all_uploads)
+
+    # Info opcional: lista os nomes e total de arquivos carregados
+    if uploaded_files:
+        st.markdown(f"**{len(uploaded_files)} arquivos carregados:**")
+        for f in uploaded_files:
+            st.write("•", f.name)
+    else:
+        st.write("Nenhum arquivo carregado.")
 
     # Filtros
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
-
                             
 # -----------------------------------------------------------------------------
 # Main Logic
@@ -260,6 +274,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
