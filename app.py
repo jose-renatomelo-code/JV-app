@@ -82,35 +82,34 @@ def parse_jv_file(uploaded_file):
 # Sidebar
 # -----------------------------------------------------------------------------
 with st.sidebar:
+
     st.title("JV Analyser Pro")
     st.markdown("---")
 
-    # controla recriação do uploader
-    if 'key_uploader' not in st.session_state:
-        st.session_state['key_uploader'] = 0
+    # Armazenamento permanente
+    if "uploaded_files" not in st.session_state:
+        st.session_state["uploaded_files"] = []
 
-    # função para resetar tudo
-    def clean_all_uploads():
-        st.session_state['key_uploader'] += 1
-        st.session_state['uploaded_files'] = []
-
-    uploaded_files = st.file_uploader(
-        "Upload .txt files", 
-        type=["txt"], 
+    # Upload normal com key fixa
+    new_files = st.file_uploader(
+        "Upload .txt files",
+        type=["txt"],
         accept_multiple_files=True,
-        key=st.session_state['key_uploader']
+        key="uploader"
     )
 
-    # lógica de substituição automática
-    if uploaded_files:
-        st.session_state['uploaded_files'] = uploaded_files
-    else:
-        uploaded_files = st.session_state.get('uploaded_files', [])
+    # Se o usuário enviou arquivos agora → substitui
+    if new_files:
+        st.session_state["uploaded_files"] = new_files
 
+    uploaded_files = st.session_state["uploaded_files"]
+
+    # Botão para limpar completamente
     if st.button("Clean Uploads"):
-        clean_all_uploads()
-        st.success("Uploader refreshed!")
+        st.session_state["uploaded_files"] = []
+        st.experimental_rerun()   
 
+    # Filtros
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
@@ -261,6 +260,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
