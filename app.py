@@ -84,13 +84,20 @@ def parse_jv_file(uploaded_file):
 with st.sidebar:
     st.title("JV Analyser Pro")
     st.markdown("---")
+
+    if 'key_uploader' not in st.session.state:
+        st.session.state['key_uploader'] = 0
     
     uploaded_files = st.file_uploader(
         "Upload .txt files", 
         type=["txt"], 
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        key='key_uploader'
     )
 
+    def clean_all_uploads():
+        st.session.state['key_uploader'] += 1
+    
     if uploaded_files:
         st.session_state['uploaded_files'] = uploaded_files
     else: 
@@ -99,6 +106,9 @@ with st.sidebar:
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
+    if st.button('Clean Uploads", on_click=clean_all_uploads):
+        st.write('Uploader refreshed succesfully!')
+                                 
 
 # -----------------------------------------------------------------------------
 # Main Logic
@@ -245,6 +255,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
