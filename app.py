@@ -85,8 +85,8 @@ with st.sidebar:
     st.title("JV Analyser Pro")
     st.markdown("---")
 
-    if 'key_uploader' not in st.session.state:
-        st.session.state['key_uploader'] = 0
+    if 'key_uploader' not in st.session_state:
+        st.session_state['key_uploader'] = 0
     
     uploaded_files = st.file_uploader(
         "Upload .txt files", 
@@ -96,7 +96,7 @@ with st.sidebar:
     )
 
     def clean_all_uploads():
-        st.session.state['key_uploader'] += 1
+        st.session_state['key_uploader'] += 1
     
     if uploaded_files:
         st.session_state['uploaded_files'] = uploaded_files
@@ -255,6 +255,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
