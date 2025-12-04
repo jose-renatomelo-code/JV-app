@@ -96,7 +96,7 @@ with st.sidebar:
         st.session_state["uploaded_files"] = []
         st.session_state["uploader_key"] += 1
         # força recarregar imediatamente para refletir a nova key no navegador
-        st.experimental_rerun()
+        st.rerun()
 
     # file_uploader com key dinâmica baseada em uploader_key
     new_files = st.file_uploader(
@@ -115,14 +115,6 @@ with st.sidebar:
 
     # Botão com on_click que chama a função (um clique basta)
     st.button("Clean Uploads", on_click=clean_all_uploads)
-
-    # Info opcional: lista os nomes e total de arquivos carregados
-    if uploaded_files:
-        st.markdown(f"**{len(uploaded_files)} arquivos carregados:**")
-        for f in uploaded_files:
-            st.write("•", f.name)
-    else:
-        st.write("Nenhum arquivo carregado.")
 
     # Filtros
     st.markdown("### Filters")
@@ -274,6 +266,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
