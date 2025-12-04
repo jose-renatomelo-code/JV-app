@@ -107,13 +107,14 @@ with st.sidebar:
     else:
         uploaded_files = st.session_state.get('uploaded_files', [])
 
+    if st.button("Clean Uploads"):
+        clean_all_uploads()
+        st.success("Uploader refreshed!")
+
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
 
-    if st.button("Clean Uploads"):
-        clean_all_uploads()
-        st.success("Uploader refreshed successfully!")
                             
 # -----------------------------------------------------------------------------
 # Main Logic
@@ -260,6 +261,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
