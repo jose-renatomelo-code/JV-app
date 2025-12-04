@@ -90,6 +90,11 @@ with st.sidebar:
         type=["txt"], 
         accept_multiple_files=True
     )
+
+    if uploaded_files:
+        st.session_state['uploaded_files'] = uploaded_files
+    else: 
+        uploaded_files = st.session_state.get('uploaded_files', [])
     
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
@@ -101,10 +106,7 @@ with st.sidebar:
 if not uploaded_files:
     st.info("👋 Welcome! Please upload your JV .txt files in the sidebar to get started.")
     st.stop()
-if uploaded_files:
-    st.session_state['uploaded_files'] = uploaded_files
-else: 
-    uploaded_files = st.session_state.get('uploaded_files', [])
+
 # Process files
 data_list = []
 for f in uploaded_files:
@@ -243,5 +245,6 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
