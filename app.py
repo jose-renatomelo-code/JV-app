@@ -82,7 +82,7 @@ def parse_jv_file(uploaded_file):
 # Sidebar
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.title("JV Analyser")
+    st.title("JV Analyser Pro")
     st.markdown("---")
     
     uploaded_files = st.file_uploader(
@@ -101,7 +101,10 @@ with st.sidebar:
 if not uploaded_files:
     st.info("👋 Welcome! Please upload your JV .txt files in the sidebar to get started.")
     st.stop()
-
+if upload_files:
+    st.session_state['upload_files'] = upload_files
+else: 
+    upload_files = st.session_state.get('upload_files', [])
 # Process files
 data_list = []
 for f in uploaded_files:
@@ -240,3 +243,4 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
