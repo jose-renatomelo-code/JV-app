@@ -101,10 +101,10 @@ with st.sidebar:
 if not uploaded_files:
     st.info("👋 Welcome! Please upload your JV .txt files in the sidebar to get started.")
     st.stop()
-if upload_files:
-    st.session_state['upload_files'] = upload_files
+if uploaded_files:
+    st.session_state['uploaded_files'] = uploaded_files
 else: 
-    upload_files = st.session_state.get('upload_files', [])
+    uploaded_files = st.session_state.get('uploaded_files', [])
 # Process files
 data_list = []
 for f in uploaded_files:
@@ -243,4 +243,5 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
