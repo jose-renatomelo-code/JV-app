@@ -106,7 +106,7 @@ with st.sidebar:
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
-    if st.button('Clean Uploads", on_click=clean_all_uploads):
+    if st.button('Clean Uploads', on_click=clean_all_uploads):
         st.write('Uploader refreshed succesfully!')
                                  
 
@@ -255,6 +255,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
