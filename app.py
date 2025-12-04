@@ -85,31 +85,36 @@ with st.sidebar:
     st.title("JV Analyser Pro")
     st.markdown("---")
 
+    # controla recriação do uploader
     if 'key_uploader' not in st.session_state:
         st.session_state['key_uploader'] = 0
-    
+
+    # função para resetar tudo
+    def clean_all_uploads():
+        st.session_state['key_uploader'] += 1
+        st.session_state['uploaded_files'] = []
+
     uploaded_files = st.file_uploader(
         "Upload .txt files", 
         type=["txt"], 
         accept_multiple_files=True,
-        key='key_uploader'
+        key=st.session_state['key_uploader']
     )
 
-    def clean_all_uploads():
-        st.session_state['key_uploader'] += 1
-    
+    # lógica de substituição automática
     if uploaded_files:
         st.session_state['uploaded_files'] = uploaded_files
-    else: 
+    else:
         uploaded_files = st.session_state.get('uploaded_files', [])
-    
+
     st.markdown("### Filters")
     scan_direction = st.radio("Scan Direction", ["All", "FWD", "REV"], index=0)
     min_efficiency = st.number_input("Min Efficiency (%)", min_value=0.0, value=0.0, step=0.1)
-    if st.button('Clean Uploads', on_click=clean_all_uploads):
-        st.write('Uploader refreshed succesfully!')
-                                 
 
+    if st.button("Clean Uploads"):
+        clean_all_uploads()
+        st.success("Uploader refreshed successfully!")
+                            
 # -----------------------------------------------------------------------------
 # Main Logic
 # -----------------------------------------------------------------------------
@@ -255,6 +260,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
