@@ -95,8 +95,6 @@ with st.sidebar:
     def clean_all_uploads():
         st.session_state["uploaded_files"] = []
         st.session_state["uploader_key"] += 1
-        # força recarregar imediatamente para refletir a nova key no navegador
-        st.rerun()
 
     # file_uploader com key dinâmica baseada em uploader_key
     new_files = st.file_uploader(
@@ -266,6 +264,7 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
+
 
 
 
