@@ -74,9 +74,34 @@ def parse_jv_file(uploaded_file):
         'Jsc': float(params.get('Jsc', np.nan)),
         'FF': float(params.get('FF', np.nan)),
         'Eff': float(params.get('Eff', np.nan)),
+        'HI': np.nan,
+        'Rs': np.nan,
+        'Rsh': np.nan
     }
 
     return {'filename': filename, 'df': df, 'params': clean_params}
+
+def parse_maximus(uploaded_file):
+    """
+    Parses a single uploaded JV metrics file (TSV format).
+    Extracts parameters from the first row of the file.
+    Returns a dictionary with metadata and parameters.
+    """
+    filename = uploaded_file.name
+    df = pd.read_csv(uploaded_file, sep='\t')
+    
+    # Extract parameters from the first row
+    clean_params = {
+        'Voc': float(df["Voc_jv_rev"].iloc[0]) if "Voc_jv_rev" in df.columns else np.nan,
+        'Jsc': float(df["Jsc_rev(mA/cm²)"].iloc[0]) if "Jsc_rev(mA/cm²)" in df.columns else np.nan,
+        'FF': float(df["FF_rev(%)"].iloc[0]) if "FF_rev(%)" in df.columns else np.nan,
+        'Eff': float(df["PCE_jv_rev"].iloc[0]) if "PCE_jv_rev" in df.columns else np.nan,
+        'HI': float(df["HI(%)"].iloc[0]) if "HI(%)" in df.columns else np.nan,
+        'Rs': float(df["Rs(ohms)"].iloc[0]) if "Rs(ohms)" in df.columns else np.nan,
+        'Rsh': float(df["Rsh(ohms)"].iloc[0]) if "Rsh(ohms)" in df.columns else np.nan
+    }
+
+    return {'filename': filename, 'df': None, 'params': clean_params}
 
 # -----------------------------------------------------------------------------
 # Sidebar
@@ -95,7 +120,9 @@ with st.sidebar:
     def clean_all_uploads():
         st.session_state["uploaded_files"] = []
         st.session_state["uploader_key"] += 1
-
+    
+    # Escolha origem do txt para parsing
+    txt_origin = st.radio("JV Software", ["Oninn", "Renato"], index=0)
     # file_uploader com key dinâmica baseada em uploader_key
     new_files = st.file_uploader(
         "Upload .txt files",
@@ -129,7 +156,10 @@ if not uploaded_files:
 # Process files
 data_list = []
 for f in uploaded_files:
-    parsed = parse_jv_file(f)
+    if txt_origin == "oninn":
+        parsed = parse_jv_file(f)
+    else: 
+        parsed = parse_maximus(f)
     if parsed['df'] is not None and not parsed['df'].empty:
         data_list.append(parsed)
 
@@ -232,14 +262,21 @@ with tab2:
     
     df_params = pd.DataFrame(params_list)
     
-    # Reorder columns
+    # Reorder columns (include extra parameters if available)
     cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
+    extra_cols = ['HI', 'Rs', 'Rsh']
+    available_cols = [col for col in extra_cols if col in df_params.columns]
+    cols.extend(available_cols)
     df_params = df_params[cols]
     
     st.dataframe(df_params, use_container_width=True)
     
     st.markdown("### Statistics")
-    stats = df_params[['Voc', 'Jsc', 'FF', 'Eff']].describe().T
+    stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
+    extra_cols = ['HI', 'Rs', 'Rsh']
+    available_extra = [col for col in extra_cols if col in df_params.columns]
+    stat_cols.extend(available_extra)
+    stats = df_params[stat_cols].describe().T
     st.dataframe(stats.style.format("{:.3f}"), use_container_width=True)
     
     st.markdown("### Distributions")
@@ -247,13 +284,21 @@ with tab2:
     
     with d_col1:
         st.markdown("**Boxplots**")
-        param_to_plot = st.selectbox("Select Parameter", ['Voc', 'Jsc', 'FF', 'Eff'])
+        plot_params = ['Voc', 'Jsc', 'FF', 'Eff']
+        extra_cols = ['HI', 'Rs', 'Rsh']
+        available_extra = [col for col in extra_cols if col in df_params.columns]
+        plot_params.extend(available_extra)
+        param_to_plot = st.selectbox("Select Parameter", plot_params)
         fig_box = px.box(df_params, y=param_to_plot, points="all", title=f"{param_to_plot} Distribution")
         st.plotly_chart(fig_box, use_container_width=True)
         
     with d_col2:
         st.markdown("**Correlations**")
-        fig_corr = px.scatter_matrix(df_params, dimensions=['Voc', 'Jsc', 'FF', 'Eff'], title="Parameter Correlations")
+        corr_params = ['Voc', 'Jsc', 'FF', 'Eff']
+        extra_cols = ['HI', 'Rs', 'Rsh']
+        available_extra = [col for col in extra_cols if col in df_params.columns]
+        corr_params.extend(available_extra)
+        fig_corr = px.scatter_matrix(df_params, dimensions=corr_params, title="Parameter Correlations")
         st.plotly_chart(fig_corr, use_container_width=True)
 
     # Export
@@ -264,16 +309,3 @@ with tab2:
         file_name='jv_report.csv',
         mime='text/csv',
     )
-
-
-
-
-
-
-
-
-
-
-
-
-
