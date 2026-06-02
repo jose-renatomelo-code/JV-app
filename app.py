@@ -189,11 +189,12 @@ if not uploaded_files:
 # Process files
 data_list = []
 for f in uploaded_files:
-    if txt_origin == "oninn":
+    if txt_origin == "Oninn":
         parsed = parse_jv_file(f)
-    else: 
+    elif txt_origin == "Renato": 
         parsed = parse_maximus(f)
-    if parsed['df'] is not None and not parsed['df'].empty:
+
+    if parsed is not None:
         data_list.append(parsed)
 
 if not data_list:
