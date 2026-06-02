@@ -110,13 +110,13 @@ def parse_maximus(uploaded_file):
     
     # Map values to parameters
     param_map = {
-        'Voc_jv_rev': 'Voc',
+        'Voc_jv_rev(V)': 'Voc',
         'Voc': 'Voc',
         'Jsc_rev(mA/cm²)': 'Jsc',
         'Jsc': 'Jsc',
         'FF_rev(%)': 'FF',
         'FF': 'FF',
-        'PCE_jv_rev': 'Eff',
+        'PCE_jv_rev(%)': 'Eff',
         'Eff': 'Eff',
         'HI(%)': 'HI',
         'HI': 'HI',
