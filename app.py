@@ -83,24 +83,57 @@ def parse_jv_file(uploaded_file):
 
 def parse_maximus(uploaded_file):
     """
-    Parses a single uploaded JV metrics file (TSV format).
-    Extracts parameters from the first row of the file.
+    Parses a simple text file with parameters.
+    First line contains parameter names, subsequent lines contain values.
     Returns a dictionary with metadata and parameters.
     """
     filename = uploaded_file.name
-    df = pd.read_csv(uploaded_file, sep='\t')
+    content = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
     
-    # Extract parameters from the first row
     clean_params = {
-        'Voc': float(df["Voc_jv_rev"].iloc[0]) if "Voc_jv_rev" in df.columns else np.nan,
-        'Jsc': float(df["Jsc_rev(mA/cm²)"].iloc[0]) if "Jsc_rev(mA/cm²)" in df.columns else np.nan,
-        'FF': float(df["FF_rev(%)"].iloc[0]) if "FF_rev(%)" in df.columns else np.nan,
-        'Eff': float(df["PCE_jv_rev"].iloc[0]) if "PCE_jv_rev" in df.columns else np.nan,
-        'HI': float(df["HI(%)"].iloc[0]) if "HI(%)" in df.columns else np.nan,
-        'Rs': float(df["Rs(ohms)"].iloc[0]) if "Rs(ohms)" in df.columns else np.nan,
-        'Rsh': float(df["Rsh(ohms)"].iloc[0]) if "Rsh(ohms)" in df.columns else np.nan
+        'Voc': np.nan,
+        'Jsc': np.nan,
+        'FF': np.nan,
+        'Eff': np.nan,
+        'HI': np.nan,
+        'Rs': np.nan,
+        'Rsh': np.nan
     }
-
+    
+    if len(lines) < 2:
+        return {'filename': filename, 'df': None, 'params': clean_params}
+    
+    # Parse header and values
+    headers = [h.strip() for h in lines[0].split('\t')]
+    values = [v.strip() for v in lines[1].split('\t')]
+    
+    # Map values to parameters
+    param_map = {
+        'Voc_jv_rev': 'Voc',
+        'Voc': 'Voc',
+        'Jsc_rev(mA/cm²)': 'Jsc',
+        'Jsc': 'Jsc',
+        'FF_rev(%)': 'FF',
+        'FF': 'FF',
+        'PCE_jv_rev': 'Eff',
+        'Eff': 'Eff',
+        'HI(%)': 'HI',
+        'HI': 'HI',
+        'Rs(ohms)': 'Rs',
+        'Rs': 'Rs',
+        'Rsh(ohms)': 'Rsh',
+        'Rsh': 'Rsh'
+    }
+    
+    for header, value in zip(headers, values):
+        header_clean = header.strip()
+        if header_clean in param_map:
+            try:
+                clean_params[param_map[header_clean]] = float(value)
+            except (ValueError, TypeError):
+                pass
+    
     return {'filename': filename, 'df': None, 'params': clean_params}
 
 # -----------------------------------------------------------------------------
