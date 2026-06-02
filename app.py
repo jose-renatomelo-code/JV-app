@@ -241,37 +241,38 @@ with tab1:
     
     colors = px.colors.qualitative.Plotly
     
-    for i, d in enumerate(filtered_data):
-        df = d['df']
-        name = d['filename']
-        color = colors[i % len(colors)]
+    if txt_origin == "Oninn":
+        for i, d in enumerate(filtered_data):
+            df = d['df']
+            name = d['filename']
+            color = colors[i % len(colors)]
+            
+            fig_jv.add_trace(go.Scatter(x=df['V'], y=df['J'], mode='lines', name=name, line=dict(color=color)))
+            fig_pv.add_trace(go.Scatter(x=df['V'], y=df['P'], mode='lines', name=name, line=dict(color=color)))
+
+        # Layout updates
+        fig_jv.update_layout(
+            title="J-V Curves",
+            xaxis_title="Voltage (V)",
+            yaxis_title="Current Density (mA/cm²)",
+            hovermode="x unified",
+            template="plotly_white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
         
-        fig_jv.add_trace(go.Scatter(x=df['V'], y=df['J'], mode='lines', name=name, line=dict(color=color)))
-        fig_pv.add_trace(go.Scatter(x=df['V'], y=df['P'], mode='lines', name=name, line=dict(color=color)))
+        fig_pv.update_layout(
+            title="P-V Curves",
+            xaxis_title="Voltage (V)",
+            yaxis_title="Power Density (mW/cm²)",
+            hovermode="x unified",
+            template="plotly_white",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
 
-    # Layout updates
-    fig_jv.update_layout(
-        title="J-V Curves",
-        xaxis_title="Voltage (V)",
-        yaxis_title="Current Density (mA/cm²)",
-        hovermode="x unified",
-        template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    
-    fig_pv.update_layout(
-        title="P-V Curves",
-        xaxis_title="Voltage (V)",
-        yaxis_title="Power Density (mW/cm²)",
-        hovermode="x unified",
-        template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-
-    with col1:
-        st.plotly_chart(fig_jv, use_container_width=True)
-    with col2:
-        st.plotly_chart(fig_pv, use_container_width=True)
+        with col1:
+            st.plotly_chart(fig_jv, use_container_width=True)
+        with col2:
+            st.plotly_chart(fig_pv, use_container_width=True)
 
     # Summary Metrics (Best Cell)
     best_cell = max(filtered_data, key=lambda x: x['params']['Eff'] if not np.isnan(x['params']['Eff']) else -1)
