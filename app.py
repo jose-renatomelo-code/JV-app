@@ -19,6 +19,93 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 # Parsing Logic
 # -----------------------------------------------------------------------------
+def calculate_jv_parameters(df):
+    """
+    Calculate JV parameters from V and J data.
+    Assumes J is positive at V = 0 and decreases.
+    """
+    if df is None or len(df) < 5:
+        return {}
+    
+    # Sort by V to be sure
+    df_sorted = df.sort_values(by="V").reset_index(drop=True)
+    v_arr = df_sorted["V"].values
+    j_arr = df_sorted["J"].values
+    
+    # 1. Jsc: J at V = 0
+    # Interpolate Jsc at V = 0.
+    jsc = float(np.interp(0.0, v_arr, j_arr))
+    
+    # 2. Voc: V at J = 0
+    # Find where J crosses 0.
+    voc = np.nan
+    for i in range(len(j_arr) - 1):
+        if (j_arr[i] >= 0 and j_arr[i+1] <= 0) or (j_arr[i] <= 0 and j_arr[i+1] >= 0):
+            j1, j2 = j_arr[i], j_arr[i+1]
+            v1, v2 = v_arr[i], v_arr[i+1]
+            if j1 != j2:
+                voc = float(v1 + (0.0 - j1) * (v2 - v1) / (j2 - j1))
+                break
+    
+    if np.isnan(voc):
+        idx = np.argmin(np.abs(j_arr))
+        voc = float(v_arr[idx])
+        
+    # 3. Fill Factor (FF) and Efficiency (Eff)
+    p_multiplier = 1.0 if jsc >= 0 else -1.0
+    p_vals = v_arr * j_arr * p_multiplier
+    
+    mpp_idx = np.argmax(p_vals)
+    p_max = float(p_vals[mpp_idx])
+    
+    abs_jsc = abs(jsc)
+    abs_voc = abs(voc)
+    
+    if abs_jsc > 0 and abs_voc > 0:
+        ff = float((p_max / (abs_voc * abs_jsc)) * 100)
+        # Eff = P_max % assuming 100 mW/cm2 illumination and V in volts, J in mA/cm2.
+        eff = float(p_max)
+    else:
+        ff = np.nan
+        eff = np.nan
+        
+    # 4. Rs: Series resistance (dV/dJ near Voc)
+    rs = np.nan
+    try:
+        voc_mask = (v_arr >= 0.9 * voc) & (v_arr <= 1.1 * voc) if voc != 0 else np.array([False]*len(v_arr))
+        if voc_mask.sum() >= 2:
+            slope, _ = np.polyfit(j_arr[voc_mask], v_arr[voc_mask], 1)
+            rs = float(abs(slope * 1000))
+        else:
+            closest_idxs = np.argsort(np.abs(v_arr - voc))[:3]
+            slope, _ = np.polyfit(j_arr[closest_idxs], v_arr[closest_idxs], 1)
+            rs = float(abs(slope * 1000))
+    except Exception:
+        pass
+        
+    # 5. Rsh: Shunt resistance (dV/dJ near V = 0)
+    rsh = np.nan
+    try:
+        v0_mask = (v_arr >= -0.1) & (v_arr <= 0.1)
+        if v0_mask.sum() >= 2:
+            slope, _ = np.polyfit(j_arr[v0_mask], v_arr[v0_mask], 1)
+            rsh = float(abs(slope * 1000))
+        else:
+            closest_idxs = np.argsort(np.abs(v_arr))[:3]
+            slope, _ = np.polyfit(j_arr[closest_idxs], v_arr[closest_idxs], 1)
+            rsh = float(abs(slope * 1000))
+    except Exception:
+        pass
+        
+    return {
+        'Voc_calc': abs_voc,
+        'Jsc_calc': abs_jsc,
+        'FF_calc': ff,
+        'Eff_calc': eff,
+        'Rs_calc': rs,
+        'Rsh_calc': rsh
+    }
+
 def parse_jv_file(uploaded_file):
     """
     Parses a single uploaded JV file.
@@ -37,8 +124,15 @@ def parse_jv_file(uploaded_file):
         # Find numbers (including scientific notation)
         nums = re.findall(r'[-+]?\d*\.\d+(?:[eE][-+]?\d+)?|[-+]?\d+', ln_norm)
 
-        # Extract V, J data points
+        # Check if the line is likely a data row (only numbers and delimiters)
+        is_data_line = False
         if len(nums) >= 2:
+            rem = re.sub(r'[\d\s.+\-eE,;\t]', '', ln)
+            if len(rem) == 0:
+                is_data_line = True
+
+        # Extract V, J data points
+        if is_data_line:
             try:
                 v = float(nums[0])
                 j = float(nums[1])
@@ -46,21 +140,23 @@ def parse_jv_file(uploaded_file):
             except Exception:
                 pass
 
-        # Extract parameters
-        param_labels = {
-            'Voc': r'Voc\s*\[?V\]?',
-            'Jsc': r'Jsc\s*\[?mA\/cm',
-            'FF': r'FF\s*\[%\]?',
-            'Eff': r'(Eff\.|Eff|Efficiency)\s*\[%\]?'
+        # Extract parameters using precise regex patterns
+        param_patterns = {
+            'Voc': r'Voc\s*\[?V\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'Jsc': r'Jsc\s*\[?mA\/cm\^?²?2?\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'FF': r'FF\s*\[%\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'Eff': r'(?:Eff\.|Eff|Efficiency)\s*\[%\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'Rs': r'R\s*s\s*\[?(?:ohm|Ω)\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'Rsh': r'R\s*sh\s*\[?(?:ohm|Ω)\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
+            'HI': r'HI\s*\[%\]?[\s\:=~\-]*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)'
         }
-        for key, pat in param_labels.items():
-            if re.search(pat, ln, flags=re.IGNORECASE):
-                vals = re.findall(r'[-+]?\d*\.\d+(?:[eE][-+]?\d+)?|[-+]?\d+', ln_norm)
-                if vals:
-                    try:
-                        params[key] = float(vals[-1])
-                    except Exception:
-                        params[key] = np.nan
+        for key, pat in param_patterns.items():
+            match = re.search(pat, ln_norm, flags=re.IGNORECASE)
+            if match:
+                try:
+                    params[key] = float(match.group(1))
+                except Exception:
+                    params[key] = np.nan
 
     df = None
     if numeric_rows:
@@ -74,10 +170,31 @@ def parse_jv_file(uploaded_file):
         'Jsc': float(params.get('Jsc', np.nan)),
         'FF': float(params.get('FF', np.nan)),
         'Eff': float(params.get('Eff', np.nan)),
-        'HI': np.nan,
-        'Rs': np.nan,
-        'Rsh': np.nan
+        'HI': float(params.get('HI', np.nan)),
+        'Rs': float(params.get('Rs', np.nan)),
+        'Rsh': float(params.get('Rsh', np.nan))
     }
+
+    # Calculate fallback parameters if df is present and some parameters are NaN
+    if df is not None and not df.empty:
+        if (np.isnan(clean_params['Voc']) or np.isnan(clean_params['Jsc']) or 
+            np.isnan(clean_params['FF']) or np.isnan(clean_params['Eff']) or 
+            np.isnan(clean_params['Rs']) or np.isnan(clean_params['Rsh'])):
+            
+            calc = calculate_jv_parameters(df)
+            if calc:
+                if np.isnan(clean_params['Voc']):
+                    clean_params['Voc'] = calc.get('Voc_calc', np.nan)
+                if np.isnan(clean_params['Jsc']):
+                    clean_params['Jsc'] = calc.get('Jsc_calc', np.nan)
+                if np.isnan(clean_params['FF']):
+                    clean_params['FF'] = calc.get('FF_calc', np.nan)
+                if np.isnan(clean_params['Eff']):
+                    clean_params['Eff'] = calc.get('Eff_calc', np.nan)
+                if np.isnan(clean_params['Rs']):
+                    clean_params['Rs'] = calc.get('Rs_calc', np.nan)
+                if np.isnan(clean_params['Rsh']):
+                    clean_params['Rsh'] = calc.get('Rsh_calc', np.nan)
 
     return {'filename': filename, 'df': df, 'params': clean_params}
 
@@ -108,9 +225,10 @@ def parse_maximus(uploaded_file):
     if len(lines) < 2:
         return {'filename': filename, 'df': None, 'params': clean_params}
     
-    # Parse header and values
+    # Parse header and values with index safety
     headers = [h.strip() for h in lines[0].split('\t')]
-    values = [v.strip() for v in lines[2].split('\t')]
+    val_line_idx = 2 if len(lines) >= 3 else 1
+    values = [v.strip() for v in lines[val_line_idx].split('\t')]
     
     # Map values to parameters
     param_map = {
@@ -147,6 +265,7 @@ def parse_maximus(uploaded_file):
                 pass
     
     return {'filename': filename, 'df': None, 'params': clean_params}
+
 
 # -----------------------------------------------------------------------------
 # Sidebar
@@ -298,8 +417,8 @@ with tab1:
     st.markdown("### 🏆 Best Performing Cell")
     
     m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-    m1.metric("Efficiency Reverse", f"{best_cell['params']['PCE_rev']:.2f}%")
-    m2.metric("Efficiency Forward", f"{best_cell['params']['PCE_fwd']:.2f}%")
+    m1.metric("PCEE Reverse", f"{best_cell['params']['PCE_rev']:.2f}%")
+    m2.metric("PCE Forward", f"{best_cell['params']['PCE_fwd']:.2f}%")
     m3.metric("Voc Reverse", f"{best_cell['params']['Voc_rev']:.3f} V")
     m4.metric("Voc Forward", f"{best_cell['params']['Voc_fwd']:.3f} V")
     m5.metric("Jsc Reverse", f"{best_cell['params']['Jsc_rev']:.2f} mA/cm²")
@@ -321,7 +440,7 @@ with tab2:
     df_params = pd.DataFrame(params_list)
     
     # Reorder columns (include extra parameters if available)
-    if txt_origin == "oninn":
+    if txt_origin == "Oninn":
         cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
     else: 
         cols = ["Filename", "Voc_rev", "Jsc_rev", "FF_rev", "PCE_rev"]
@@ -333,7 +452,7 @@ with tab2:
     st.dataframe(df_params, use_container_width=True)
     
     st.markdown("### Statistics")
-    if txt_origin == "oninn": 
+    if txt_origin == "Oninn": 
         stat_cols = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
     else: 
         stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
