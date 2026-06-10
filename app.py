@@ -337,7 +337,7 @@ filtered_data = []
 for d in data_list:
     name = d['filename']
     lname = name.lower()
-    if txt_origin == 'oninn':
+    if txt_origin == 'Oninn':
         eff = d['params'].get('Eff', np.nan)
     else:
         eff_rev = d['params'].get('PCE_rev', np.nan)
@@ -409,7 +409,7 @@ with tab1:
             st.plotly_chart(fig_pv, use_container_width=True)
 
     # Summary Metrics (Best Cell)
-    if txt_origin == "oninn": 
+    if txt_origin == "Oninn": 
         best_cell = max(filtered_data, key=lambda x: x['params']['Eff'] if not np.isnan(x['params']['Eff']) else -1)
     else:
         best_cell = max(filtered_data, key=lambda x: x['params']['PCE_rev'] if not np.isnan(x['params']['PCE_rev']) else -1)
