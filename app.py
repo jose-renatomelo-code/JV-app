@@ -452,7 +452,7 @@ with tab2:
     st.dataframe(df_params, use_container_width=True)
     
     st.markdown("### Statistics")
-    if txt_origin == "Oninn": 
+    if txt_origin == "Renato": 
         stat_cols = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
     else: 
         stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
