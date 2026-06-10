@@ -427,17 +427,13 @@ with tab1:
     else:
         best_cell = max(filtered_data, key=lambda x: x['params']['PCE_rev'] if not np.isnan(x['params']['PCE_rev']) else -1)
         st.markdown("### 🏆 Best Performing Cell")
-        m1, m2, m3, m4, m5, m6, m7, m8, m9, m10 = st.columns(10)
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
         m1.metric("PCE Rev", safe_fmt(best_cell['params']['PCE_rev'], "{:.2f}%"))
-        m2.metric("PCE Fwd", safe_fmt(best_cell['params']['PCE_fwd'], "{:.2f}%"))
-        m3.metric("Voc Rev", safe_fmt(best_cell['params']['Voc_rev'], "{:.3f} V"))
-        m4.metric("Voc Fwd", safe_fmt(best_cell['params']['Voc_fwd'], "{:.3f} V"))
-        m5.metric("Jsc Rev", safe_fmt(best_cell['params']['Jsc_rev'], "{:.2f} mA/cm²"))
-        m6.metric("Jsc Fwd", safe_fmt(best_cell['params']['Jsc_fwd'], "{:.2f} mA/cm²"))
-        m7.metric("FF Rev", safe_fmt(best_cell['params']['FF_rev'], "{:.1f}%"))
-        m8.metric("FF Fwd", safe_fmt(best_cell['params']['FF_fwd'], "{:.1f}%"))
-        m9.metric("Rs", safe_fmt(best_cell['params']['Rs'], "{:.1f} Ω"))
-        m10.metric("Rsh", safe_fmt(best_cell['params']['Rsh'], "{:.1f} Ω"))
+        m2.metric("Voc Rev", safe_fmt(best_cell['params']['Voc_rev'], "{:.3f} V"))
+        m3.metric("Jsc Rev", safe_fmt(best_cell['params']['Jsc_rev'], "{:.2f} mA/cm²"))
+        m4.metric("FF Rev", safe_fmt(best_cell['params']['FF_rev'], "{:.1f}%"))
+        m5.metric("Rs", safe_fmt(best_cell['params']['Rs'], "{:.1f} Ω"))
+        m6.metric("Rsh", safe_fmt(best_cell['params']['Rsh'], "{:.1f} Ω"))
     st.caption(f"File: {best_cell['filename']}")
 
 with tab2:
