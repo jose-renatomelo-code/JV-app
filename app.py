@@ -92,10 +92,14 @@ def parse_maximus(uploaded_file):
     lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
     
     clean_params = {
-        'Voc': np.nan,
-        'Jsc': np.nan,
-        'FF': np.nan,
-        'Eff': np.nan,
+        'Voc_rev': np.nan,
+        'Voc_fwd': np.nan,
+        'Jsc_rev': np.nan,
+        'Jsc_fwd': np.nan,
+        'FF_rev': np.nan,
+        'FF_fwd': np.nan,
+        'PCE_rev': np.nan,
+        'PCE_fwd': np.nan,
         'HI': np.nan,
         'Rs': np.nan,
         'Rsh': np.nan
@@ -106,18 +110,26 @@ def parse_maximus(uploaded_file):
     
     # Parse header and values
     headers = [h.strip() for h in lines[0].split('\t')]
-    values = [v.strip() for v in lines[1].split('\t')]
+    values = [v.strip() for v in lines[2].split('\t')]
     
     # Map values to parameters
     param_map = {
-        'Voc_jv_rev(V)': 'Voc',
-        'Voc': 'Voc',
-        'Jsc_rev(mA/cm²)': 'Jsc',
-        'Jsc': 'Jsc',
-        'FF_rev(%)': 'FF',
-        'FF': 'FF',
-        'PCE_jv_rev(%)': 'Eff',
-        'Eff': 'Eff',
+        'Voc_jv_rev(V)': 'Voc_rev',
+        'Voc_rev': 'Voc_rev',
+        'Voc_jv_fwd(V)': 'Voc_fwd',
+        'Voc_fwd': 'Voc_fwd',
+        'Jsc_rev(mA/cm²)': 'Jsc_rev',
+        'Jsc_rev': 'Jsc_rev',
+        'Jsc_fwd(mA/cm²)': 'Jsc_fwd',
+        'Jsc_fwd': 'Jsc_fwd',
+        'FF_rev(%)': 'FF_rev',
+        'FF_rev': 'FF_rev',
+        'FF_fwd(%)': 'FF_fwd',
+        'FF_fwd': 'FF_fwd',
+        'PCE_jv_rev(%)': 'PCE_rev',
+        'PCE_rev': 'PCE_rev',
+        'PCE_jv_fwd(%)': 'PCE_fwd',
+        'PCE_fwd': 'PCE_fwd',
         'HI(%)': 'HI',
         'HI': 'HI',
         'Rs(ohms)': 'Rs',
@@ -206,10 +218,13 @@ filtered_data = []
 for d in data_list:
     name = d['filename']
     lname = name.lower()
-    eff = d['params'].get('Eff', np.nan)
+    if txt_origin == 'oninn':
+        eff = d['params'].get('Eff', np.nan)
+    else:
+        eff_rev = d['params'].get('PCE_rev', np.nan)
     
     # Efficiency filter
-    if not np.isnan(eff) and eff < min_efficiency:
+    if not np.isnan(eff_rev) and eff_rev < min_efficiency:
         continue
         
     # Direction filter
@@ -275,14 +290,22 @@ with tab1:
             st.plotly_chart(fig_pv, use_container_width=True)
 
     # Summary Metrics (Best Cell)
-    best_cell = max(filtered_data, key=lambda x: x['params']['Eff'] if not np.isnan(x['params']['Eff']) else -1)
+    if txt_origin == "oninn": 
+        best_cell = max(filtered_data, key=lambda x: x['params']['Eff'] if not np.isnan(x['params']['Eff']) else -1)
+    else:
+        best_cell = max(filtered_data, key=lambda x: x['params']['PCE_rev'] if not np.isnan(x['params']['PCE_rev']) else -1)
+
     st.markdown("### 🏆 Best Performing Cell")
     
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Efficiency", f"{best_cell['params']['Eff']:.2f}%")
-    m2.metric("Voc", f"{best_cell['params']['Voc']:.3f} V")
-    m3.metric("Jsc", f"{best_cell['params']['Jsc']:.2f} mA/cm²")
-    m4.metric("FF", f"{best_cell['params']['FF']:.1f}%")
+    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
+    m1.metric("Efficiency Reverse", f"{best_cell['params']['PCE_rev']:.2f}%")
+    m2.metric("Efficiency Forward", f"{best_cell['params']['PCE_fwd']:.2f}%")
+    m3.metric("Voc Reverse", f"{best_cell['params']['Voc_rev']:.3f} V")
+    m4.metric("Voc Forward", f"{best_cell['params']['Voc_fwd']:.3f} V")
+    m5.metric("Jsc Reverse", f"{best_cell['params']['Jsc_rev']:.2f} mA/cm²")
+    m6.metric("Jsc Forward", f"{best_cell['params']['Jsc_fwd']:.2f} mA/cm²")
+    m7.metric("FF Reverse", f"{best_cell['params']['FF_rev']:.1f}%")
+    m8.metric("FF Forward", f"{best_cell['params']['FF_fwd']:.1f}%")
     st.caption(f"File: {best_cell['filename']}")
 
 with tab2:
@@ -298,7 +321,10 @@ with tab2:
     df_params = pd.DataFrame(params_list)
     
     # Reorder columns (include extra parameters if available)
-    cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
+    if txt_origin == "oninn":
+        cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
+    else: 
+        cols = ["Filename", "Voc_rev", "Jsc_rev", "FF_rev", "PCE_rev"]
     extra_cols = ['HI', 'Rs', 'Rsh']
     available_cols = [col for col in extra_cols if col in df_params.columns]
     cols.extend(available_cols)
@@ -307,7 +333,10 @@ with tab2:
     st.dataframe(df_params, use_container_width=True)
     
     st.markdown("### Statistics")
-    stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
+    if txt_origin == "oninn": 
+        stat_cols = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
+    else: 
+        stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
     extra_cols = ['HI', 'Rs', 'Rsh']
     available_extra = [col for col in extra_cols if col in df_params.columns]
     stat_cols.extend(available_extra)
@@ -319,7 +348,10 @@ with tab2:
     
     with d_col1:
         st.markdown("**Boxplots**")
-        plot_params = ['Voc', 'Jsc', 'FF', 'Eff']
+        if txt_origin == "Renato": 
+            plot_params = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 'HI', 'Rs_rev', 'Rs_fwd', 'Rsh_rev']
+        else: 
+            plot_params = ['Voc', 'Jsc', 'FF', 'Eff']
         extra_cols = ['HI', 'Rs', 'Rsh']
         available_extra = [col for col in extra_cols if col in df_params.columns]
         plot_params.extend(available_extra)
@@ -329,7 +361,11 @@ with tab2:
         
     with d_col2:
         st.markdown("**Correlations**")
-        corr_params = ['Voc', 'Jsc', 'FF', 'Eff']
+        if txt_origin == "Renato":
+            corr_params = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 
+                        'HI', 'Rs', 'Rsh']
+        else:
+            corr_params = ['Voc', 'Jsc', 'FF', 'Eff']
         extra_cols = ['HI', 'Rs', 'Rsh']
         available_extra = [col for col in extra_cols if col in df_params.columns]
         corr_params.extend(available_extra)
