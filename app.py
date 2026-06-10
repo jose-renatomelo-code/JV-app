@@ -337,14 +337,16 @@ filtered_data = []
 for d in data_list:
     name = d['filename']
     lname = name.lower()
+
+    # Efficiency filter
     if txt_origin == 'Oninn':
         eff = d['params'].get('Eff', np.nan)
+        if not np.isnan(eff) and eff < min_efficiency:
+            continue
     else:
         eff_rev = d['params'].get('PCE_rev', np.nan)
-    
-    # Efficiency filter
-    if not np.isnan(eff_rev) and eff_rev < min_efficiency:
-        continue
+        if not np.isnan(eff_rev) and eff_rev < min_efficiency:
+            continue
         
     # Direction filter
     if scan_direction == "FWD" and "fwd" not in lname:
@@ -409,22 +411,33 @@ with tab1:
             st.plotly_chart(fig_pv, use_container_width=True)
 
     # Summary Metrics (Best Cell)
-    if txt_origin == "Oninn": 
+    def safe_fmt(val, fmt):
+        return fmt.format(val) if not (isinstance(val, float) and np.isnan(val)) else "N/A"
+
+    if txt_origin == "Oninn":
         best_cell = max(filtered_data, key=lambda x: x['params']['Eff'] if not np.isnan(x['params']['Eff']) else -1)
+        st.markdown("### 🏆 Best Performing Cell")
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
+        m1.metric("Efficiency", safe_fmt(best_cell['params']['Eff'], "{:.2f}%"))
+        m2.metric("Voc", safe_fmt(best_cell['params']['Voc'], "{:.3f} V"))
+        m3.metric("Jsc", safe_fmt(best_cell['params']['Jsc'], "{:.2f} mA/cm²"))
+        m4.metric("FF", safe_fmt(best_cell['params']['FF'], "{:.1f}%"))
+        m5.metric("Rs", safe_fmt(best_cell['params']['Rs'], "{:.1f} Ω"))
+        m6.metric("Rsh", safe_fmt(best_cell['params']['Rsh'], "{:.1f} Ω"))
     else:
         best_cell = max(filtered_data, key=lambda x: x['params']['PCE_rev'] if not np.isnan(x['params']['PCE_rev']) else -1)
-
-    st.markdown("### 🏆 Best Performing Cell")
-    
-    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-    m1.metric("PCEE Reverse", f"{best_cell['params']['PCE_rev']:.2f}%")
-    m2.metric("PCE Forward", f"{best_cell['params']['PCE_fwd']:.2f}%")
-    m3.metric("Voc Reverse", f"{best_cell['params']['Voc_rev']:.3f} V")
-    m4.metric("Voc Forward", f"{best_cell['params']['Voc_fwd']:.3f} V")
-    m5.metric("Jsc Reverse", f"{best_cell['params']['Jsc_rev']:.2f} mA/cm²")
-    m6.metric("Jsc Forward", f"{best_cell['params']['Jsc_fwd']:.2f} mA/cm²")
-    m7.metric("FF Reverse", f"{best_cell['params']['FF_rev']:.1f}%")
-    m8.metric("FF Forward", f"{best_cell['params']['FF_fwd']:.1f}%")
+        st.markdown("### 🏆 Best Performing Cell")
+        m1, m2, m3, m4, m5, m6, m7, m8, m9, m10 = st.columns(10)
+        m1.metric("PCE Rev", safe_fmt(best_cell['params']['PCE_rev'], "{:.2f}%"))
+        m2.metric("PCE Fwd", safe_fmt(best_cell['params']['PCE_fwd'], "{:.2f}%"))
+        m3.metric("Voc Rev", safe_fmt(best_cell['params']['Voc_rev'], "{:.3f} V"))
+        m4.metric("Voc Fwd", safe_fmt(best_cell['params']['Voc_fwd'], "{:.3f} V"))
+        m5.metric("Jsc Rev", safe_fmt(best_cell['params']['Jsc_rev'], "{:.2f} mA/cm²"))
+        m6.metric("Jsc Fwd", safe_fmt(best_cell['params']['Jsc_fwd'], "{:.2f} mA/cm²"))
+        m7.metric("FF Rev", safe_fmt(best_cell['params']['FF_rev'], "{:.1f}%"))
+        m8.metric("FF Fwd", safe_fmt(best_cell['params']['FF_fwd'], "{:.1f}%"))
+        m9.metric("Rs", safe_fmt(best_cell['params']['Rs'], "{:.1f} Ω"))
+        m10.metric("Rsh", safe_fmt(best_cell['params']['Rsh'], "{:.1f} Ω"))
     st.caption(f"File: {best_cell['filename']}")
 
 with tab2:
@@ -441,24 +454,24 @@ with tab2:
     
     # Reorder columns (include extra parameters if available)
     if txt_origin == "Oninn":
-        cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
-    else: 
-        cols = ["Filename", "Voc_rev", "Jsc_rev", "FF_rev", "PCE_rev"]
+        base_cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
+        stat_base  = ['Voc', 'Jsc', 'FF', 'Eff']
+    else:
+        base_cols = ["Filename", "Voc_rev", "Voc_fwd", "Jsc_rev", "Jsc_fwd",
+                     "FF_rev", "FF_fwd", "PCE_rev", "PCE_fwd"]
+        stat_base  = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd',
+                      'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
     extra_cols = ['HI', 'Rs', 'Rsh']
-    available_cols = [col for col in extra_cols if col in df_params.columns]
-    cols.extend(available_cols)
-    df_params = df_params[cols]
+    # Only include columns that actually exist in the dataframe
+    available_base = [c for c in base_cols if c in df_params.columns]
+    available_stat = [c for c in stat_base  if c in df_params.columns]
+    available_extra = [c for c in extra_cols if c in df_params.columns]
+    df_params = df_params[available_base + available_extra]
     
     st.dataframe(df_params, use_container_width=True)
     
     st.markdown("### Statistics")
-    if txt_origin == "Renato": 
-        stat_cols = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
-    else: 
-        stat_cols = ['Voc', 'Jsc', 'FF', 'Eff']
-    extra_cols = ['HI', 'Rs', 'Rsh']
-    available_extra = [col for col in extra_cols if col in df_params.columns]
-    stat_cols.extend(available_extra)
+    stat_cols = available_stat + available_extra
     stats = df_params[stat_cols].describe().T
     st.dataframe(stats.style.format("{:.3f}"), use_container_width=True)
     
@@ -467,27 +480,26 @@ with tab2:
     
     with d_col1:
         st.markdown("**Boxplots**")
-        if txt_origin == "Renato": 
-            plot_params = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 'HI', 'Rs_rev', 'Rs_fwd', 'Rsh_rev']
-        else: 
-            plot_params = ['Voc', 'Jsc', 'FF', 'Eff']
-        extra_cols = ['HI', 'Rs', 'Rsh']
-        available_extra = [col for col in extra_cols if col in df_params.columns]
-        plot_params.extend(available_extra)
+        if txt_origin == "Oninn":
+            plot_base = ['Voc', 'Jsc', 'FF', 'Eff', 'Rs', 'Rsh']
+        else:
+            plot_base = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd',
+                         'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 'HI', 'Rs', 'Rsh']
+        # Only keep columns that exist in the dataframe
+        plot_params = [c for c in plot_base if c in df_params.columns]
         param_to_plot = st.selectbox("Select Parameter", plot_params)
         fig_box = px.box(df_params, y=param_to_plot, points="all", title=f"{param_to_plot} Distribution")
         st.plotly_chart(fig_box, use_container_width=True)
         
     with d_col2:
         st.markdown("**Correlations**")
-        if txt_origin == "Renato":
-            corr_params = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd', 'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 
-                        'HI', 'Rs', 'Rsh']
+        if txt_origin == "Oninn":
+            corr_base = ['Voc', 'Jsc', 'FF', 'Eff', 'Rs', 'Rsh']
         else:
-            corr_params = ['Voc', 'Jsc', 'FF', 'Eff']
-        extra_cols = ['HI', 'Rs', 'Rsh']
-        available_extra = [col for col in extra_cols if col in df_params.columns]
-        corr_params.extend(available_extra)
+            corr_base = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd',
+                         'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd', 'HI', 'Rs', 'Rsh']
+        # Only keep columns that exist in the dataframe
+        corr_params = [c for c in corr_base if c in df_params.columns]
         fig_corr = px.scatter_matrix(df_params, dimensions=corr_params, title="Parameter Correlations")
         st.plotly_chart(fig_corr, use_container_width=True)
 
