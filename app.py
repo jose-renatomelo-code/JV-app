@@ -376,16 +376,18 @@ with tab1:
     fig_pv = go.Figure()
     
     colors = px.colors.qualitative.Plotly
-    
-    if txt_origin == "Oninn":
-        for i, d in enumerate(filtered_data):
-            df = d['df']
-            name = d['filename']
-            color = colors[i % len(colors)]
-            
+
+    for i, d in enumerate(filtered_data):
+        df = d['df']
+        name = d['filename']
+        color = colors[i % len(colors)]
+        if txt_origin == "Oninn":
             fig_jv.add_trace(go.Scatter(x=df['V'], y=df['J'], mode='lines', name=name, line=dict(color=color)))
             fig_pv.add_trace(go.Scatter(x=df['V'], y=df['P'], mode='lines', name=name, line=dict(color=color)))
-
+        elif txt_origin == "Renato":
+            df["P(mw/cm²)"] = df['avg_jcurrent(mA/cm²)'] * df["voltage(V)"]
+            fig_jv.add_trace(go.Scatter(x=df['voltage(V)'], y=df['avg_jcurrent(mA/cm²)'], mode='lines', name=name, line=dict(color=color)))
+            fig_pv.add_trace(go.Scatter(x=df['voltage(V)'], y=df['P(mw/cm²)'], mode='lines', name=name, line=dict(color=color)))
         # Layout updates
         fig_jv.update_layout(
             title="J-V Curves",
@@ -395,7 +397,7 @@ with tab1:
             template="plotly_white",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        
+
         fig_pv.update_layout(
             title="P-V Curves",
             xaxis_title="Voltage (V)",
