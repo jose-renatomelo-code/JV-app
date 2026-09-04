@@ -200,71 +200,112 @@ def parse_jv_file(uploaded_file):
 
 def parse_maximus(uploaded_file):
     """
-    Parses a simple text file with parameters.
-    First line contains parameter names, subsequent lines contain values.
-    Returns a dictionary with metadata and parameters.
+    Parses a Maximus/Renato JV data file.
+    Only reads voltage, avg_jcurrent, direction and Loop, and calculates
+    PV parameters using calculate_jv_parameters for all loops and both directions (rev and fwd).
     """
     filename = uploaded_file.name
     content = uploaded_file.getvalue().decode("utf-8", errors="ignore")
-    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
     
-    clean_params = {
-        'Voc_rev': np.nan,
-        'Voc_fwd': np.nan,
-        'Jsc_rev': np.nan,
-        'Jsc_fwd': np.nan,
-        'FF_rev': np.nan,
-        'FF_fwd': np.nan,
-        'PCE_rev': np.nan,
-        'PCE_fwd': np.nan,
-        'HI': np.nan,
-        'Rs': np.nan,
-        'Rsh': np.nan
-    }
-    
-    if len(lines) < 2:
-        return {'filename': filename, 'df': None, 'params': clean_params}
-    
-    # Parse header and values with index safety
-    headers = [h.strip() for h in lines[0].split('\t')]
-    val_line_idx = 2 if len(lines) >= 3 else 1
-    values = [v.strip() for v in lines[val_line_idx].split('\t')]
-    
-    # Map values to parameters
-    param_map = {
-        'Voc_jv_rev(V)': 'Voc_rev',
-        'Voc_rev': 'Voc_rev',
-        'Voc_jv_fwd(V)': 'Voc_fwd',
-        'Voc_fwd': 'Voc_fwd',
-        'Jsc_rev(mA/cm²)': 'Jsc_rev',
-        'Jsc_rev': 'Jsc_rev',
-        'Jsc_fwd(mA/cm²)': 'Jsc_fwd',
-        'Jsc_fwd': 'Jsc_fwd',
-        'FF_rev(%)': 'FF_rev',
-        'FF_rev': 'FF_rev',
-        'FF_fwd(%)': 'FF_fwd',
-        'FF_fwd': 'FF_fwd',
-        'PCE_jv_rev(%)': 'PCE_rev',
-        'PCE_rev': 'PCE_rev',
-        'PCE_jv_fwd(%)': 'PCE_fwd',
-        'PCE_fwd': 'PCE_fwd',
-        'HI(%)': 'HI',
-        'HI': 'HI',
-        'Rs(ohms)': 'Rs',
-        'Rs': 'Rs',
-        'Rsh(ohms)': 'Rsh',
-        'Rsh': 'Rsh'
-    }
-    
-    for header, value in zip(headers, values):
-        header_clean = header.strip()
-        if header_clean in param_map:
-            try:
-                clean_params[param_map[header_clean]] = float(value)
-            except (ValueError, TypeError):
-                pass
-    
-    return {'filename': filename, 'df': None, 'params': clean_params}
+    try:
+        df_raw = pd.read_csv(io.StringIO(content), sep=None, engine='python')
+    except Exception:
+        df_raw = pd.read_csv(io.StringIO(content), sep='\t')
+        
+    if df_raw is None or df_raw.empty:
+        return []
+
+    # Identify only the required columns: voltage, avg_jcurrent, direction, loop
+    cols = {c.strip(): c for c in df_raw.columns}
+    col_v = next((cols[c] for c in cols if 'voltage' in c.lower() or c.lower() == 'v'), None)
+    col_j = next((cols[c] for c in cols if 'avg_jcurrent' in c.lower() or 'current' in c.lower() or c.lower() == 'j'), None)
+    col_dir = next((cols[c] for c in cols if 'direction' in c.lower() or 'dir' in c.lower()), None)
+    col_loop = next((cols[c] for c in cols if 'loop' in c.lower()), None)
+
+    if col_v is None or col_j is None:
+        return []
+
+    needed = [col_v, col_j]
+    if col_dir:
+        needed.append(col_dir)
+    if col_loop:
+        needed.append(col_loop)
+
+    df_sub = df_raw[needed].copy()
+    rename_map = {col_v: 'V', col_j: 'J'}
+    if col_dir:
+        rename_map[col_dir] = 'direction'
+    if col_loop:
+        rename_map[col_loop] = 'Loop'
+    df_sub = df_sub.rename(columns=rename_map)
+
+    df_sub['V'] = pd.to_numeric(df_sub['V'], errors='coerce')
+    df_sub['J'] = pd.to_numeric(df_sub['J'], errors='coerce')
+    df_sub = df_sub.dropna(subset=['V', 'J'])
+
+    if 'direction' not in df_sub.columns:
+        df_sub['direction'] = 'rev'
+    if 'Loop' not in df_sub.columns:
+        df_sub['Loop'] = 1
+
+    unique_loops = df_sub['Loop'].dropna().unique()
+    if len(unique_loops) == 0:
+        unique_loops = [1]
+
+    results = []
+    for loop in unique_loops:
+        loop_df = df_sub[df_sub['Loop'] == loop].copy()
+
+        df_rev = loop_df[loop_df['direction'].astype(str).str.lower().str.contains('rev')].copy()
+        df_fwd = loop_df[loop_df['direction'].astype(str).str.lower().str.contains('fwd')].copy()
+
+        calc_rev = calculate_jv_parameters(df_rev) if not df_rev.empty else {}
+        calc_fwd = calculate_jv_parameters(df_fwd) if not df_fwd.empty else {}
+
+        pce_rev = calc_rev.get('Eff_calc', np.nan)
+        pce_fwd = calc_fwd.get('Eff_calc', np.nan)
+
+        hi = np.nan
+        if not np.isnan(pce_rev) and not np.isnan(pce_fwd) and pce_fwd != 0:
+            hi = float(((pce_rev - pce_fwd) / pce_fwd) * 100)
+
+        clean_params = {
+            'Loop': loop,
+            'Voc_rev': calc_rev.get('Voc_calc', np.nan),
+            'Voc_fwd': calc_fwd.get('Voc_calc', np.nan),
+            'Jsc_rev': calc_rev.get('Jsc_calc', np.nan),
+            'Jsc_fwd': calc_fwd.get('Jsc_calc', np.nan),
+            'FF_rev': calc_rev.get('FF_calc', np.nan),
+            'FF_fwd': calc_fwd.get('FF_calc', np.nan),
+            'PCE_rev': pce_rev,
+            'PCE_fwd': pce_fwd,
+            'HI': hi,
+            'Rs': calc_rev.get('Rs_calc', np.nan),
+            'Rsh': calc_rev.get('Rsh_calc', np.nan),
+            'Eff': pce_rev if not np.isnan(pce_rev) else pce_fwd,
+            'Voc': calc_rev.get('Voc_calc', np.nan),
+            'Jsc': calc_rev.get('Jsc_calc', np.nan),
+            'FF': calc_rev.get('FF_calc', np.nan),
+        }
+
+        # Setup standard column names for curves
+        loop_df['voltage(V)'] = loop_df['V']
+        loop_df['avg_jcurrent(mA/cm²)'] = loop_df['J']
+        # Absolute power density (mW/cm²)
+        p_multiplier = -1.0 if (loop_df['J'] < 0).any() else 1.0
+        loop_df['P'] = loop_df['V'] * loop_df['J'] * p_multiplier
+        loop_df['P(mw/cm²)'] = loop_df['P']
+
+        item_name = f"{filename} (Loop {loop})" if len(unique_loops) > 1 else filename
+
+        results.append({
+            'filename': item_name,
+            'df': loop_df,
+            'loop': loop,
+            'params': clean_params
+        })
+
+    return results
 
 
 # -----------------------------------------------------------------------------
@@ -322,11 +363,15 @@ data_list = []
 for f in uploaded_files:
     if txt_origin == "Oninn":
         parsed = parse_jv_file(f)
+        if parsed is not None:
+            data_list.append(parsed)
     elif txt_origin == "Renato": 
         parsed = parse_maximus(f)
-
-    if parsed is not None:
-        data_list.append(parsed)
+        if parsed:
+            if isinstance(parsed, list):
+                data_list.extend(parsed)
+            else:
+                data_list.append(parsed)
 
 if not data_list:
     st.error("No valid JV data found in uploaded files.")
@@ -344,15 +389,26 @@ for d in data_list:
         if not np.isnan(eff) and eff < min_efficiency:
             continue
     else:
-        eff_rev = d['params'].get('PCE_rev', np.nan)
-        if not np.isnan(eff_rev) and eff_rev < min_efficiency:
+        if scan_direction == "FWD":
+            eff = d['params'].get('PCE_fwd', np.nan)
+        elif scan_direction == "REV":
+            eff = d['params'].get('PCE_rev', np.nan)
+        else:
+            eff_rev = d['params'].get('PCE_rev', np.nan)
+            eff_fwd = d['params'].get('PCE_fwd', np.nan)
+            eff = max(
+                eff_rev if not np.isnan(eff_rev) else -1,
+                eff_fwd if not np.isnan(eff_fwd) else -1
+            )
+        if not np.isnan(eff) and eff < min_efficiency:
             continue
         
     # Direction filter
-    if scan_direction == "FWD" and "fwd" not in lname:
-        continue
-    if scan_direction == "REV" and "rev" not in lname:
-        continue
+    if txt_origin == "Oninn":
+        if scan_direction == "FWD" and "fwd" not in lname:
+            continue
+        if scan_direction == "REV" and "rev" not in lname:
+            continue
         
     filtered_data.append(d)
 
@@ -371,7 +427,6 @@ with tab1:
     col1, col2 = st.columns(2)
     
     # Prepare data for plotting
-    
     fig_jv = go.Figure()
     fig_pv = go.Figure()
     
@@ -385,9 +440,19 @@ with tab1:
             fig_jv.add_trace(go.Scatter(x=df['V'], y=df['J'], mode='lines', name=name, line=dict(color=color)))
             fig_pv.add_trace(go.Scatter(x=df['V'], y=df['P'], mode='lines', name=name, line=dict(color=color)))
         elif txt_origin == "Renato":
-            df["P(mw/cm²)"] = df['avg_jcurrent(mA/cm²)'] * df["voltage(V)"]
-            fig_jv.add_trace(go.Scatter(x=df['voltage(V)'], y=df['avg_jcurrent(mA/cm²)'], mode='lines', name=name, line=dict(color=color)))
-            fig_pv.add_trace(go.Scatter(x=df['voltage(V)'], y=df['P(mw/cm²)'], mode='lines', name=name, line=dict(color=color)))
+            df_rev = df[df['direction'].astype(str).str.lower().str.contains('rev')]
+            df_fwd = df[df['direction'].astype(str).str.lower().str.contains('fwd')]
+
+            if scan_direction in ["All", "REV"] and not df_rev.empty:
+                label_rev = f"{name} (REV)" if scan_direction == "All" else name
+                fig_jv.add_trace(go.Scatter(x=df_rev['voltage(V)'], y=df_rev['avg_jcurrent(mA/cm²)'], mode='lines', name=label_rev, line=dict(color=color)))
+                fig_pv.add_trace(go.Scatter(x=df_rev['voltage(V)'], y=df_rev['P(mw/cm²)'], mode='lines', name=label_rev, line=dict(color=color)))
+
+            if scan_direction in ["All", "FWD"] and not df_fwd.empty:
+                label_fwd = f"{name} (FWD)" if scan_direction == "All" else name
+                dash_style = 'dash' if scan_direction == "All" else 'solid'
+                fig_jv.add_trace(go.Scatter(x=df_fwd['voltage(V)'], y=df_fwd['avg_jcurrent(mA/cm²)'], mode='lines', name=label_fwd, line=dict(color=color, dash=dash_style)))
+                fig_pv.add_trace(go.Scatter(x=df_fwd['voltage(V)'], y=df_fwd['P(mw/cm²)'], mode='lines', name=label_fwd, line=dict(color=color, dash=dash_style)))
         # Layout updates
         fig_jv.update_layout(
             title="J-V Curves",
@@ -455,7 +520,7 @@ with tab2:
         base_cols = ['Filename', 'Voc', 'Jsc', 'FF', 'Eff']
         stat_base  = ['Voc', 'Jsc', 'FF', 'Eff']
     else:
-        base_cols = ["Filename", "Voc_rev", "Voc_fwd", "Jsc_rev", "Jsc_fwd",
+        base_cols = ["Filename", "Loop", "Voc_rev", "Voc_fwd", "Jsc_rev", "Jsc_fwd",
                      "FF_rev", "FF_fwd", "PCE_rev", "PCE_fwd"]
         stat_base  = ['Voc_rev', 'Voc_fwd', 'Jsc_rev', 'Jsc_fwd',
                       'FF_rev', 'FF_fwd', 'PCE_rev', 'PCE_fwd']
