@@ -290,7 +290,7 @@ def parse_maximus(uploaded_file):
 
         # Setup standard column names for curves
         loop_df['voltage(V)'] = loop_df['V']
-        loop_df['avg_jcurrent(mA/cm²)'] = loop_df['J']
+        loop_df['avg_jcurrent(mA/cm²)'] = -loop_df['J']
         # Absolute power density (mW/cm²)
         p_multiplier = -1.0 if (loop_df['J'] < 0).any() else 1.0
         loop_df['P'] = loop_df['V'] * loop_df['J'] * p_multiplier
