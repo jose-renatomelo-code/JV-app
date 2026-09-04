@@ -68,35 +68,28 @@ def calculate_jv_parameters(df):
     else:
         ff = np.nan
         eff = np.nan
-        
-    # 4. Rs: Series resistance (dV/dJ near Voc)
-    rs = np.nan
-    try:
-        voc_mask = (v_arr >= 0.9 * voc) & (v_arr <= 1.1 * voc) if voc != 0 else np.array([False]*len(v_arr))
-        if voc_mask.sum() >= 2:
-            slope, _ = np.polyfit(j_arr[voc_mask], v_arr[voc_mask], 1)
-            rs = float(abs(slope * 1000))
-        else:
-            closest_idxs = np.argsort(np.abs(v_arr - voc))[:3]
-            slope, _ = np.polyfit(j_arr[closest_idxs], v_arr[closest_idxs], 1)
-            rs = float(abs(slope * 1000))
-    except Exception:
-        pass
-        
-    # 5. Rsh: Shunt resistance (dV/dJ near V = 0)
-    rsh = np.nan
-    try:
-        v0_mask = (v_arr >= -0.1) & (v_arr <= 0.1)
-        if v0_mask.sum() >= 2:
-            slope, _ = np.polyfit(j_arr[v0_mask], v_arr[v0_mask], 1)
-            rsh = float(abs(slope * 1000))
-        else:
-            closest_idxs = np.argsort(np.abs(v_arr))[:3]
-            slope, _ = np.polyfit(j_arr[closest_idxs], v_arr[closest_idxs], 1)
-            rsh = float(abs(slope * 1000))
-    except Exception:
-        pass
-        
+
+    if len(v_arr) > 3 and not np.isnan(voc) and not np.isnan(jsc):
+        try:
+            # We need I in Amps for Ohms
+            I_amps = (j_arr * 0.14) / 1000.0
+
+            # Gradient dI/dV
+            dI_dV = np.gradient(I_amps, v_arr)
+
+            # R_s at Voc
+            idx_voc = (np.abs(v_arr - voc)).argmin()
+            if dI_dV[idx_voc] != 0:
+                rs = abs(1.0 / dI_dV[idx_voc])
+
+            # R_sh at Jsc
+            idx_jsc = (np.abs(v_arr - 0.0)).argmin()
+            if dI_dV[idx_jsc] != 0:
+                rsh = abs(1.0 / dI_dV[idx_jsc])
+
+        except Exception:
+            pass
+
     return {
         'Voc_calc': abs_voc,
         'Jsc_calc': abs_jsc,
