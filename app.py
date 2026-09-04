@@ -453,29 +453,29 @@ with tab1:
                 dash_style = 'dash' if scan_direction == "All" else 'solid'
                 fig_jv.add_trace(go.Scatter(x=df_fwd['voltage(V)'], y=df_fwd['avg_jcurrent(mA/cm²)'], mode='lines', name=label_fwd, line=dict(color=color, dash=dash_style)))
                 fig_pv.add_trace(go.Scatter(x=df_fwd['voltage(V)'], y=df_fwd['P(mw/cm²)'], mode='lines', name=label_fwd, line=dict(color=color, dash=dash_style)))
-        # Layout updates
-        fig_jv.update_layout(
-            title="J-V Curves",
-            xaxis_title="Voltage (V)",
-            yaxis_title="Current Density (mA/cm²)",
-            hovermode="x unified",
-            template="plotly_white",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
+    # Layout updates
+    fig_jv.update_layout(
+        title="J-V Curves",
+        xaxis_title="Voltage (V)",
+        yaxis_title="Current Density (mA/cm²)",
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
 
-        fig_pv.update_layout(
-            title="P-V Curves",
-            xaxis_title="Voltage (V)",
-            yaxis_title="Power Density (mW/cm²)",
-            hovermode="x unified",
-            template="plotly_white",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
+    fig_pv.update_layout(
+        title="P-V Curves",
+        xaxis_title="Voltage (V)",
+        yaxis_title="Power Density (mW/cm²)",
+        hovermode="x unified",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
 
-        with col1:
-            st.plotly_chart(fig_jv, use_container_width=True)
-        with col2:
-            st.plotly_chart(fig_pv, use_container_width=True)
+    with col1:
+        st.plotly_chart(fig_jv, use_container_width=True)
+    with col2:
+        st.plotly_chart(fig_pv, use_container_width=True)
 
     # Summary Metrics (Best Cell)
     def safe_fmt(val, fmt):
