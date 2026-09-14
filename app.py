@@ -451,6 +451,7 @@ with tab1:
         title="J-V Curves",
         xaxis_title="Voltage (V)",
         yaxis_title="Current Density (mA/cm²)",
+        yaxis=dict(range=[0, 25]),
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
