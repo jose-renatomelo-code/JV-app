@@ -348,7 +348,7 @@ with st.sidebar:
 # Main Logic
 # -----------------------------------------------------------------------------
 if not uploaded_files:
-    st.info("Welcome! Please upload your JV .txt files in the sidebar to get started.")
+    st.info("👋 Welcome! Please upload your JV .txt files in the sidebar to get started.")
     st.stop()
 
 # Process files
@@ -422,6 +422,7 @@ with tab1:
     # Prepare data for plotting
     fig_jv = go.Figure()
     fig_pv = go.Figure()
+    
     colors = px.colors.qualitative.Plotly
 
     for i, d in enumerate(filtered_data):
@@ -450,7 +451,7 @@ with tab1:
         title="J-V Curves",
         xaxis_title="Voltage (V)",
         yaxis_title="Current Density (mA/cm²)",
-        yaxis=dict(range=[0, None]),
+        y_axis=dict(range=[0, None]),
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
